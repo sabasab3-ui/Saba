@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type Agent struct {
@@ -21,6 +22,7 @@ func NewAgent(name, model, language string) *Agent {
 	tools.Register(&InventoryTool{})
 	tools.Register(&OrderTool{})
 	tools.Register(&PaymentTool{})
+	tools.Register(&WebScraperTool{})
 
 	return &Agent{
 		Name:        name,
@@ -49,22 +51,71 @@ type Response struct {
 func (a *Agent) Process(ctx context.Context, msg *Message) (*Response, error) {
 	a.Memory.AddTurn(msg.UserID, msg.Content)
 
-	response := &Response{
-		Text:       fmt.Sprintf("SABA received: %s", msg.Content),
-		Action:     "echo",
-		Confidence: 0.5,
+	text := strings.ToLower(strings.TrimSpace(msg.Content))
+
+	// Simple task detection
+	task := ""
+
+	switch {
+	case strings.Contains(text, "inventory"):
+		task = "inventory"
+
+	case strings.Contains(text, "order"):
+		task = "orders"
+
+	case strings.Contains(text, "payment"):
+		task = "payments"
+
+	case strings.Contains(text, "scrape"):
+		task = "scraper"
 	}
 
-	return response, nil
+	// No task detected: normal response
+	if task == "" {
+		return &Response{
+			Text:       fmt.Sprintf("SABA received: %s", msg.Content),
+			Action:     "echo",
+			Params:     map[string]interface{}{},
+			Confidence: 0.5,
+		}, nil
+	}
+
+	// Execute detected task
+	result, err := a.ExecuteTask(ctx, task, map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Response{
+		Text:       fmt.Sprintf("SABA executed %s: %v", task, result),
+		Action:     task,
+		Params:     map[string]interface{}{},
+		Confidence: 0.9,
+	}, nil
 }
 
-func (a *Agent) ExecuteTask(ctx context.Context, taskName string, params map[string]interface{}) error {
+func (a *Agent) ExecuteTask(
+	ctx context.Context,
+	taskName string,
+	params map[string]interface{},
+) (map[string]interface{}, error) {
+
 	tool, exists := a.Tools.Get(taskName)
+
 	if !exists {
-		return fmt.Errorf("tool not found: %s", taskName)
+		return nil, fmt.Errorf("tool not found: %s", taskName)
 	}
 
-	return tool.Execute(ctx, params)
+	err := tool.Execute(ctx, params)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"status": "ok",
+		"task":   taskName,
+	}, nil
 }
 
 func (a *Agent) GetStatus() map[string]interface{} {

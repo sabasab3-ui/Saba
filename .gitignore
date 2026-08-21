@@ -1,0 +1,30 @@
+# Go
+*.exe
+*.out
+*.test
+
+# SABA binaries
+/saba
+/saba-server
+/cmd/saba
+
+# Databases
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Backup/editor files
+*.bak
+*~
+*.swp
+
+# Environment/secrets
+.env
+.env.*
+
+# OS/editor
+.DS_Store

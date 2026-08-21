@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABA AI</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0b1020;
+            color: white;
+        }
+
+        header {
+            padding: 25px;
+            background: #111a33;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        .status {
+            color: #00ff88;
+            margin-top: 8px;
+        }
+
+        main {
+            padding: 20px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: #151f3d;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: 0;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        pre {
+            background: #050914;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🤖 SABA AI</h1>
+    <div class="status">● System Active</div>
+</header>
+
+<main>
+
+    <div class="card">
+        <h2>SABA Smart Automation</h2>
+        <p>Smart Automation for Business in Africa</p>
+        <button onclick="checkHealth()">Check SABA</button>
+    </div>
+
+    <div class="card">
+        <h2>Agent</h2>
+        <button onclick="runInventory()">Run Inventory</button>
+        <pre id="result">Waiting...</pre>
+    </div>
+
+</main>
+
+<script>
+async function checkHealth() {
+    const result = document.getElementById("result");
+
+    try {
+        const response = await fetch("/health");
+        const data = await response.json();
+
+        result.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        result.textContent = "Connection error: " + error;
+    }
+}
+
+async function runInventory() {
+    const result = document.getElementById("result");
+
+    try {
+        const response = await fetch("/api/agent", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                task: "inventory",
+                params: {
+                    action: "check"
+                }
+            })
+        });
+
+        const data = await response.json();
+
+        result.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        result.textContent = "Connection error: " + error;
+    }
+}
+</script>
+
+</body>
+</html>
