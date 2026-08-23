@@ -96,7 +96,7 @@ func calculateConfidence(sourceCount, usefulPoints int) float64 {
 	return confidence
 }
 
-func buildSummary(points []string) string {
+func buildEvidenceSummary(points []string) string {
 	if len(points) == 0 {
 		return "SABA found no useful evidence to summarize."
 	}
