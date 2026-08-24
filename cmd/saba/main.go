@@ -32,7 +32,7 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 
 func main() {
 	analyzer := intelligence.SmartAnalyzer{}
-	researcher := intelligence.NewWikipediaResearcher()
+	researcher := intelligence.NewWebResearcher()
 	engine := intelligence.NewEngine(researcher, analyzer)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
