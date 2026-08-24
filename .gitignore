@@ -6,7 +6,6 @@
 # SABA binaries
 /saba
 /saba-server
-/cmd/saba
 
 # Databases
 *.db
