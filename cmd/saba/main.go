@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/sabasab3-ui/saba/internal/intelligence"
 )
@@ -62,6 +63,10 @@ func main() {
 		})
 	})
 
-	log.Println("SABA Intelligence running on http://127.0.0.1:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("SABA Intelligence running on :" + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
