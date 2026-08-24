@@ -3,18 +3,20 @@ package intelligence
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 var errEmptyResearchQuestion = errors.New("empty research question")
 
-// WebResearcher performs targeted public-web research and filters weak matches.
 type WebResearcher struct {
 	Client     *http.Client
 	MaxResults int
@@ -22,7 +24,7 @@ type WebResearcher struct {
 
 func NewWebResearcher() *WebResearcher {
 	return &WebResearcher{
-		Client:     &http.Client{Timeout: 15 * time.Second},
+		Client:     &http.Client{Timeout: 10 * time.Second},
 		MaxResults: 10,
 	}
 }
@@ -47,8 +49,17 @@ type ddgResponse struct {
 	} `json:"RelatedTopics"`
 }
 
-// Research creates focused searches, gathers public evidence, scores it for
-// relevance, and removes duplicate/weak results before analysis.
+type googleNewsRSS struct {
+	Channel struct {
+		Items []struct {
+			Title       string `xml:"title"`
+			Link        string `xml:"link"`
+			Description string `xml:"description"`
+			PubDate     string `xml:"pubDate"`
+		} `xml:"item"`
+	} `xml:"channel"`
+}
+
 func (r *WebResearcher) Research(ctx context.Context, question string) ([]Source, error) {
 	question = strings.TrimSpace(question)
 	if question == "" {
@@ -57,7 +68,7 @@ func (r *WebResearcher) Research(ctx context.Context, question string) ([]Source
 
 	client := r.Client
 	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
+		client = &http.Client{Timeout: 10 * time.Second}
 	}
 
 	maxResults := r.MaxResults
@@ -65,12 +76,39 @@ func (r *WebResearcher) Research(ctx context.Context, question string) ([]Source
 		maxResults = 10
 	}
 
+	queries := buildResearchQueries(question)
+
+	type result struct {
+		sources []Source
+	}
+	results := make(chan result, len(queries))
+	var wg sync.WaitGroup
+
+	for _, query := range queries {
+		query := query
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			var combined []Source
+
+			if items, err := searchDuck(ctx, client, query); err == nil {
+				combined = append(combined, items...)
+			}
+			if items, err := searchGoogleNews(ctx, client, query); err == nil {
+				combined = append(combined, items...)
+			}
+
+			results <- result{sources: combined}
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
 	var all []Source
-	for _, query := range buildResearchQueries(question) {
-		items, err := searchDuck(ctx, client, query)
-		if err == nil {
-			all = append(all, items...)
-		}
+	for item := range results {
+		all = append(all, item.sources...)
 	}
 
 	all = dedupeSources(all)
@@ -94,23 +132,22 @@ func buildResearchQueries(question string) []string {
 
 	if strings.Contains(lower, "africa") {
 		queries = append(queries,
-			q+" Africa",
 			"artificial intelligence Africa opportunities",
 			"AI Africa agriculture healthcare education finance",
+			"AI Africa jobs startups digital transformation",
 		)
 	}
 	if strings.Contains(lower, "uganda") {
 		queries = append(queries,
-			q+" Uganda",
 			"AI Uganda opportunities",
 			"artificial intelligence Uganda",
 		)
 	}
 	if strings.Contains(lower, "kenya") {
-		queries = append(queries, q+" Kenya", "AI Kenya")
+		queries = append(queries, "AI Kenya", "artificial intelligence Kenya")
 	}
 	if strings.Contains(lower, "nigeria") {
-		queries = append(queries, q+" Nigeria", "AI Nigeria")
+		queries = append(queries, "AI Nigeria", "artificial intelligence Nigeria")
 	}
 
 	seen := map[string]bool{}
@@ -133,17 +170,11 @@ func searchDuck(ctx context.Context, client *http.Client, query string) ([]Sourc
 	params.Set("skip_disambig", "1")
 	params.Set("no_redirect", "1")
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		"https://api.duckduckgo.com/?"+params.Encode(),
-		nil,
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.duckduckgo.com/?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("User-Agent", "SABA-Intelligence/4.0")
+	req.Header.Set("User-Agent", "SABA-Intelligence/5.0")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -152,7 +183,7 @@ func searchDuck(ctx context.Context, client *http.Client, query string) ([]Sourc
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("DuckDuckGo HTTP %d", resp.StatusCode)
 	}
 
 	var data ddgResponse
@@ -160,37 +191,85 @@ func searchDuck(ctx context.Context, client *http.Client, query string) ([]Sourc
 		return nil, err
 	}
 
-	out := make([]Source, 0, 20)
-
+	var out []Source
 	add := func(title, link, content string) {
 		title = strings.TrimSpace(stripMarkup(title))
 		link = strings.TrimSpace(link)
 		content = strings.TrimSpace(stripMarkup(content))
-
 		if title == "" || link == "" || content == "" {
 			return
 		}
-
-		out = append(out, Source{
-			Title:   title,
-			URL:     link,
-			Content: content,
-		})
+		out = append(out, Source{Title: title, URL: link, Content: content})
 	}
 
 	if data.AbstractText != "" && data.AbstractURL != "" {
 		add(data.Heading, data.AbstractURL, data.AbstractText)
 	}
 	if data.Answer != "" {
-		add("Web answer", "https://duckduckgo.com/", data.Answer)
+		add("DuckDuckGo web answer", "https://duckduckgo.com/", data.Answer)
 	}
 	for _, item := range data.Results {
 		add(item.Result, item.FirstURL, item.Text)
 	}
 	for _, topic := range data.RelatedTopics {
-		add("", topic.FirstURL, topic.Text)
+		add(topic.Text, topic.FirstURL, topic.Text)
 		for _, nested := range topic.Topics {
-			add("", nested.FirstURL, nested.Text)
+			add(nested.Text, nested.FirstURL, nested.Text)
+		}
+	}
+
+	return dedupeSources(out), nil
+}
+
+func searchGoogleNews(ctx context.Context, client *http.Client, query string) ([]Source, error) {
+	params := url.Values{}
+	params.Set("q", query)
+	params.Set("hl", "en-US")
+	params.Set("gl", "US")
+	params.Set("ceid", "US:en")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://news.google.com/rss/search?"+params.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "SABA-Intelligence/5.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Google News HTTP %d", resp.StatusCode)
+	}
+
+	var feed googleNewsRSS
+	if err := xml.NewDecoder(resp.Body).Decode(&feed); err != nil {
+		return nil, err
+	}
+
+	out := make([]Source, 0, len(feed.Channel.Items))
+	for _, item := range feed.Channel.Items {
+		title := strings.TrimSpace(stripMarkup(item.Title))
+		link := strings.TrimSpace(item.Link)
+		description := strings.TrimSpace(stripMarkup(item.Description))
+
+		if title == "" || link == "" {
+			continue
+		}
+		if description == "" {
+			description = title
+		}
+
+		content := description
+		if item.PubDate != "" {
+			content += " Published: " + item.PubDate
+		}
+
+		out = append(out, Source{Title: title, URL: link, Content: content})
+		if len(out) >= 15 {
+			break
 		}
 	}
 
@@ -256,6 +335,7 @@ func rankForQuestion(question string, sources []Source) []Source {
 			out = append(out, item.source)
 		}
 	}
+
 	return out
 }
 
@@ -270,7 +350,7 @@ func meaningfulResearchTokens(question string) []string {
 	}
 
 	seen := map[string]bool{}
-	out := []string{}
+	var out []string
 
 	for _, word := range strings.Fields(strings.ToLower(question)) {
 		word = strings.Trim(word, ".,!?;:\"'()[]{}")
@@ -280,6 +360,7 @@ func meaningfulResearchTokens(question string) []string {
 		seen[word] = true
 		out = append(out, word)
 	}
+
 	return out
 }
 
@@ -322,6 +403,7 @@ func dedupeSources(sources []Source) []Source {
 		}
 		out = append(out, source)
 	}
+
 	return out
 }
 
@@ -331,11 +413,11 @@ func stripMarkup(text string) string {
 		"</span>", "",
 		"<b>", "", "</b>", "",
 		"<em>", "", "</em>", "",
-		"&quot;", "\"", "&amp;", "&", "&#39;", "'",
-		"&lt;", "<", "&gt;", ">",
 	}
+
 	for i := 0; i+1 < len(replacements); i += 2 {
 		text = strings.ReplaceAll(text, replacements[i], replacements[i+1])
 	}
-	return strings.Join(strings.Fields(text), " ")
+
+	return strings.Join(strings.Fields(html.UnescapeString(text)), " ")
 }
