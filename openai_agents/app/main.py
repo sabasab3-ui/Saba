@@ -5,7 +5,7 @@ from .runner import run_task
 
 app = FastAPI(
     title="SABA OpenAI Agents",
-    version="1.0.0",
+    version="1.1.0",
     description="Multi-agent orchestration layer for SABA.",
 )
 
@@ -18,7 +18,7 @@ async def status():
     return {
         "status": "ready",
         "service": "saba-openai-agents",
-        "model": settings.model,
+        "model": settings.model or "sdk-default",
         "saba_gateway_url": settings.saba_gateway_url,
     }
 
@@ -37,7 +37,11 @@ async def run(request: RunRequest):
             request.input,
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        # Do not expose a traceback or secret-bearing internal exception.
+        raise HTTPException(
+            status_code=500,
+            detail="Agent execution failed.",
+        ) from exc
 
     return RunResponse(
         status="completed",
@@ -49,4 +53,9 @@ async def run(request: RunRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=False)
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=False,
+    )

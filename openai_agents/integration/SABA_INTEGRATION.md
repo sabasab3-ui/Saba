@@ -1,37 +1,22 @@
-# Adding the Agents Layer to SABA
+# SABA Integration Boundary
 
-Your current SABA repository already contains an `internal/gateway` package and an
-`internal/intelligence` package. The gateway currently accepts an `AgentRequest`
-and returns an `AgentResponse`.
+This package runs as a private service behind the SABA Go gateway.
 
-Recommended integration:
+Recommended flow:
 
-1. Run this Python service privately on the same VPS as SABA.
-2. Add an HTTP client in the Go gateway for `/run`.
-3. Route requests whose agent/mode is `openai_agents` to this service.
-4. Keep SABA's existing intelligence analyzer as a native fallback.
-5. Keep OpenHands behind the separate Coding System boundary.
+SABA Core Intelligence
+→ SABA Orchestrator/Gateway
+→ OpenAI Agents service `/run`
+→ specialist agent
+→ response
+→ SABA Gateway
+→ user channel
 
-Suggested request:
+The Research Agent can use OpenAI-hosted web search. The Coding Coordinator
+only creates implementation plans; the separate SABA Coding System/OpenHands
+service remains responsible for actual code execution.
 
-```json
-{
-  "task": "Analyze this business problem",
-  "mode": "auto",
-  "input": "..."
-}
-```
+Keep port 8090 bound to localhost/private network. Do not expose `/run`
+directly to the public internet.
 
-Suggested response:
-
-```json
-{
-  "status": "completed",
-  "mode": "auto",
-  "agent": "SABA Analysis Agent",
-  "output": "..."
-}
-```
-
-Do not expose this service directly to the public internet. Put it behind the
-SABA gateway, authentication, and a private network/VPS firewall.
+The Go example in `go_bridge_example.go` shows the HTTP boundary.

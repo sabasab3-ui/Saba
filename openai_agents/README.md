@@ -1,75 +1,114 @@
-# SABA OpenAI Agents — Multi-Agent Workflow Package
+# SABA OpenAI Agents — Production-Ready Multi-Agent Layer
 
-This package adds an OpenAI Agents SDK orchestration layer for SABA.
+This package is the OpenAI Agents orchestration layer for SABA.
 
-Architecture:
+## Architecture
 
-SABA Core Intelligence -> SABA Orchestrator -> OpenAI Agents -> specialist agents
+SABA Core Intelligence
+        ↓
+SABA Orchestrator / Gateway
+        ↓
+OpenAI Agents
+   ├── Research Agent (web search)
+   ├── Analysis Agent
+   ├── Reasoning Agent
+   ├── Business Agent
+   └── Coding Coordinator
+        ↓
+SABA Coding System / OpenHands
 
-Specialists included:
-- Research Agent
-- Analysis Agent
-- Reasoning Agent
-- Business Agent
-- Coding Coordinator
+The Coding Coordinator prepares implementation plans. It does not execute shell
+commands or modify repositories. Execution remains inside the separate SABA
+Coding System/OpenHands boundary.
 
-The Coding Coordinator does NOT execute code itself. It prepares coding work for the existing SABA Coding System/OpenHands layer.
+## Included
+
+- OpenAI Agents SDK
+- Multi-agent handoffs
+- Real hosted web search for the research specialist
+- Optional explicit model configuration
+- FastAPI service
+- `/health`
+- `/status`
+- `/run`
+- Input validation
+- Safe API-key handling through environment variables
+- SABA gateway adapter
+- Go bridge example
+- Local syntax/test scripts
+- Docker support
+- Termux installation script
+- No secrets committed
 
 ## Requirements
 
-- Python 3.10+
-- An OpenAI API key
-- `pip install -r requirements.txt`
+Python 3.10+ and an OpenAI API key.
 
-The official OpenAI Agents SDK uses `Agent`, `Runner`, handoffs, tools, guardrails, sessions and tracing for multi-agent workflows.
+The SDK can use its current default model when `OPENAI_MODEL` is empty. Set
+`OPENAI_MODEL` only when you explicitly want a different supported model.
 
-## Quick start
+## Termux / Linux
 
 ```bash
-cd SABA_OpenAI_Agents
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+bash install_termux.sh
 cp .env.example .env
-# edit .env and set OPENAI_API_KEY
+nano .env
 ./run.sh
 ```
-
-The service listens on `127.0.0.1:8090` by default.
-
-Endpoints:
-- GET `/health`
-- GET `/status`
-- POST `/run`
-
-Example:
-
-```bash
-curl -X POST http://127.0.0.1:8090/run \
-  -H 'Content-Type: application/json' \
-  -d '{"task":"Research how SABA could help small businesses in Uganda.","mode":"auto"}'
-```
-
-## Modes
-
-`auto` — triage to the most suitable specialist.
-`research` — research-focused agent.
-`analysis` — analysis-focused agent.
-`reasoning` — reasoning/planning-focused agent.
-`business` — business-focused agent.
-`coding` — coding-task coordinator; sends a structured coding plan rather than executing code.
-
-## SABA integration
 
 Set:
 
 ```env
-SABA_GATEWAY_URL=http://127.0.0.1:8080
+OPENAI_API_KEY=your_key_here
 ```
 
-The adapter can call a future HTTP gateway endpoint without changing the core agent workflow. The current SABA Go gateway can be wired to this service as the next integration step.
+Do not commit `.env`.
 
-Security:
-- Keep the service on localhost/private network until authentication is added.
-- Never commit `.env` or API keys.
-- Do not expose `/run` directly to the public internet.
+## API
+
+Health:
+
+```bash
+curl http://127.0.0.1:8090/health
+```
+
+Status:
+
+```bash
+curl http://127.0.0.1:8090/status
+```
+
+Run an automatic workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8090/run \
+  -H 'Content-Type: application/json' \
+  -d '{"task":"Analyze how SABA could help small businesses in Uganda.","mode":"auto"}'
+```
+
+Available modes:
+
+- `auto`
+- `research`
+- `analysis`
+- `reasoning`
+- `business`
+- `coding`
+
+## SABA integration
+
+The package is deliberately isolated under `openai_agents/`. The included
+`integration/` directory documents the Go HTTP boundary for connecting the
+existing SABA gateway to this service.
+
+Keep this service private. Put authentication and network access control at
+the SABA gateway/VPS layer before exposing it beyond localhost/private network.
+
+## Testing
+
+```bash
+bash test.sh
+```
+
+This performs syntax compilation and package tests. An OpenAI API key is not
+required for the local syntax/unit tests.

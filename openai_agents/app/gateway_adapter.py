@@ -1,13 +1,8 @@
-import httpx
 from typing import Any
+import httpx
 
 class SabaGatewayClient:
-    """Optional adapter for the SABA Go gateway.
-
-    The current SABA gateway is an in-process Go component. This client is
-    intentionally isolated so an HTTP endpoint can be added later without
-    coupling the OpenAI Agents layer to Go internals.
-    """
+    """Small private-network adapter for the existing SABA gateway."""
 
     def __init__(self, base_url: str, timeout: float = 15.0):
         self.base_url = base_url.rstrip("/")
