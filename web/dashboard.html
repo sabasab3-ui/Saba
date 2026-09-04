@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABA AI - Dashboard</title>
+    <link rel="icon" type="image/png" href="/assets/saba-ai-icon.png">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>🤖 SABA AI Dashboard</h1>
+        <div class="status online">System Active</div>
+    </header>
+
+    <main>
+        <div id="alertContainer" style="position: fixed; top: 100px; right: 20px; z-index: 1000; max-width: 400px;"></div>
+
+        <div class="grid large">
+            <div class="card">
+                <div class="card-header">
+                    <h2>System Status</h2>
+                    <span class="badge success">Online</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Service</div>
+                        <div class="metric-value">Ready</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">API</div>
+                        <div class="metric-value">v1.1</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value" id="uptime">--</div>
+                    </div>
+                </div>
+                <button id="checkHealthBtn" style="width: 100%; margin-top: 10px;">Check System Health</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Agent Modes</h2>
+                    <span class="badge success">6 Available</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+                    <button class="secondary" style="padding: 8px;">🔍 Research</button>
+                    <button class="secondary" style="padding: 8px;">📊 Analysis</button>
+                    <button class="secondary" style="padding: 8px;">🧠 Reasoning</button>
+                    <button class="secondary" style="padding: 8px;">💼 Business</button>
+                    <button class="secondary" style="padding: 8px;">💻 Coding</button>
+                    <button class="secondary" style="padding: 8px;">🔄 Auto</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 30px;">
+            <div class="card-header">
+                <h2>Agent Execution</h2>
+            </div>
+            <label style="display: block; margin-bottom: 10px;">
+                <span style="font-size: 14px; color: var(--muted-text); margin-bottom: 5px; display: block;">Task</span>
+                <input type="text" id="taskInput" placeholder="Enter task description" style="width: 100%;">
+            </label>
+            <label style="display: block; margin-bottom: 15px;">
+                <span style="font-size: 14px; color: var(--muted-text); margin-bottom: 5px; display: block;">Mode</span>
+                <select id="modeSelect" style="width: 100%;">
+                    <option value="auto">Auto (Full orchestration)</option>
+                    <option value="research">Research (Web search)</option>
+                    <option value="analysis">Analysis (Data interpretation)</option>
+                    <option value="reasoning">Reasoning (Complex planning)</option>
+                    <option value="business">Business (Strategy)</option>
+                    <option value="coding">Coding (Implementation)</option>
+                </select>
+            </label>
+            <button id="runInventoryBtn" style="width: 100%;">▶ Run Agent Task</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Response</h2>
+            </div>
+            <pre id="result">Waiting for command...</pre>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>SABA AI - Smart Automation for Business in Africa | © 2025 | API v1.1.0</p>
+    </footer>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>
